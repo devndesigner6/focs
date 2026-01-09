@@ -1,4 +1,7 @@
 import { EmailItem } from '../types';
+import { requestGoogleAccessToken, GOOGLE_SCOPES } from './googleToken';
+import { db } from '../firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export async function fetchEmails(userId: string): Promise<EmailItem[]> {
   try {
@@ -10,7 +13,7 @@ export async function fetchEmails(userId: string): Promise<EmailItem[]> {
     }
     
     // Fetch recent emails from Gmail API
-    const response = await fetch(
+    let response = await fetch(
       'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=is:unread OR is:important',
       {
         headers: {
@@ -20,7 +23,24 @@ export async function fetchEmails(userId: string): Promise<EmailItem[]> {
     );
     
     if (!response.ok) {
-      throw new Error('Failed to fetch emails');
+      // Attempt token refresh via GIS on 401/403
+      if (response.status === 401 || response.status === 403) {
+        const freshToken = await requestGoogleAccessToken(GOOGLE_SCOPES);
+        if (freshToken) {
+          try {
+            await setDoc(doc(db, 'users', userId), { accessToken: freshToken, updatedAt: serverTimestamp() }, { merge: true });
+          } catch {}
+          response = await fetch(
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=is:unread OR is:important',
+            {
+              headers: { Authorization: `Bearer ${freshToken}` },
+            }
+          );
+        }
+      }
+      if (!response.ok) {
+        throw new Error('Failed to fetch emails');
+      }
     }
     
     const data = await response.json();

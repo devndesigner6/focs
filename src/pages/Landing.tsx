@@ -14,14 +14,24 @@ const Landing = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState<boolean>(() => localStorage.getItem('focs-installed') === 'true');
+  const [installed, setInstalled] = useState<boolean>(false);
+  const [deviceType, setDeviceType] = useState<'windows' | 'mac' | 'android' | 'ios' | 'other'>('other');
 
   useEffect(() => {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    if (isStandalone) {
-      setInstalled(true);
-      localStorage.setItem('focs-installed', 'true');
-    }
+    // Detect device type
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('android')) setDeviceType('android');
+    else if (ua.includes('iphone') || ua.includes('ipad')) setDeviceType('ios');
+    else if (ua.includes('mac')) setDeviceType('mac');
+    else if (ua.includes('win')) setDeviceType('windows');
+    else setDeviceType('other');
+
+    const media = window.matchMedia('(display-mode: standalone)');
+    const computeInstalled = () => {
+      const isStandalone = media.matches || (window.navigator as any).standalone;
+      setInstalled(!!isStandalone);
+    };
+    computeInstalled();
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
@@ -30,16 +40,25 @@ const Landing = () => {
 
     const handleInstalled = () => {
       setInstalled(true);
-      localStorage.setItem('focs-installed', 'true');
       setInstallPrompt(null);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleInstalled);
 
+    const handleVisibility = () => computeInstalled();
+
+    const handleDisplayModeChange = () => computeInstalled();
+
+    media.addEventListener?.('change', handleDisplayModeChange);
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleInstalled);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      media.removeEventListener?.('change', handleDisplayModeChange);
     };
   }, []);
 
@@ -59,26 +78,32 @@ const Landing = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!installed) {
+      setError('Please install the app first before connecting your Google account.');
+      return;
+    }
+    
     try {
       setLoading(true);
       setError('');
-      const result = await signInWithPopup(auth, googleProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken;
-
-      // Persist token + profile so downstream Gmail/Calendar fetchers can use it
-      if (result.user) {
-        await setDoc(
-          doc(db, 'users', result.user.uid),
-          {
-            email: result.user.email || '',
-            displayName: result.user.displayName || '',
-            photoURL: result.user.photoURL || '',
-            accessToken: accessToken || null,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
+      // Avoid double prompts: Only sign in if not already signed in
+      if (!auth.currentUser) {
+        const result = await signInWithPopup(auth, googleProvider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const accessToken = credential?.accessToken;
+        if (result.user) {
+          await setDoc(
+            doc(db, 'users', result.user.uid),
+            {
+              email: result.user.email || '',
+              displayName: result.user.displayName || '',
+              photoURL: result.user.photoURL || '',
+              accessToken: accessToken || null,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
       }
     } catch (err: any) {
       console.error('Sign in error:', err);
@@ -89,9 +114,14 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-gradient-to-br from-[#0b0b0b] via-[#0f0f0f] to-[#0a0a0a]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-gradient-to-br from-[#0b0b0b] via-[#0f0f0f] to-[#0a0a0a]">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0 opacity-40" style={{ background: 'radial-gradient(800px at 20% 20%, #1f2a3a44, transparent), radial-gradient(900px at 80% 60%, #1a2f2244, transparent)' }} />
+      
+      {/* Wave background */}
+      <div className="absolute bottom-0 left-0 right-0 opacity-20 pointer-events-none">
+        <img src="/wave.png" alt="" className="w-full h-auto object-cover" style={{ mixBlendMode: 'screen' }} />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -109,7 +139,8 @@ const Landing = () => {
           <h1 className="text-6xl md:text-7xl font-light tracking-tight mb-3 text-dark-text">
             focs<span className="text-accent-blue">.</span>
           </h1>
-          <p className="text-dark-muted text-lg md:text-xl">One screen. Zero chaos. Clear priorities every morning.</p>
+          <p className="text-dark-muted text-lg md:text-xl mb-2">One screen. Zero chaos. Clear priorities every morning.</p>
+          <p className="text-dark-muted text-base md:text-lg">Your day, sorted. Automatically.</p>
         </motion.div>
 
         {/* Headline */}
@@ -117,9 +148,9 @@ const Landing = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
-          className="text-lg text-dark-muted mb-10 max-w-2xl mx-auto text-center leading-relaxed"
+          className="text-base text-dark-muted mb-10 max-w-2xl mx-auto text-center leading-relaxed"
         >
-          Install focs as a desktop PWA, then connect Gmail + Calendar. Your daily brief opens as a floating window with AI summaries that mirror the look from the screenshots.
+          focs connects your tools and uses AI to surface priorities, decisions, and next actions so you can stay focused on what matters.
         </motion.p>
 
         {/* Connect Buttons */}
@@ -134,28 +165,34 @@ const Landing = () => {
             <div className="p-6 rounded-3xl bg-[#111] border border-[#1f1f1f] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)]">
               <p className="text-[11px] tracking-[0.25em] text-dark-muted mb-3">STEP 1</p>
               <h3 className="text-2xl font-medium mb-2 text-dark-text">Install focs</h3>
-              <p className="text-sm text-dark-muted mb-4">Add focs as a desktop window (PWA) on Mac, Windows, or Android.</p>
+              <p className="text-sm text-dark-muted mb-4">Add focs as an app on your {deviceType === 'mac' ? 'Mac' : deviceType === 'windows' ? 'Windows PC' : deviceType === 'android' ? 'Android phone' : deviceType === 'ios' ? 'iPhone' : 'device'}.</p>
               <button
                 onClick={handleInstallClick}
-                className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl bg-white text-gray-900 hover:bg-gray-100 transition-all shadow-lg"
+                disabled={installed}
+                className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl bg-white text-gray-900 hover:bg-gray-100 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="font-semibold">Install app</span>
-                <span className="text-xs text-gray-700">{installed ? 'Installed' : installPrompt ? 'Ready' : 'Try install'}</span>
+                <span className="font-semibold">{installed ? '✓ Installed' : 'Install app'}</span>
+                <span className="text-xs text-gray-700">{installed ? 'Ready' : installPrompt ? 'Click to install' : 'Use browser menu'}</span>
               </button>
               <div className="grid grid-cols-3 gap-2 text-xs text-dark-muted mt-4">
-                <div className="p-3 rounded-xl bg-[#161616] border border-[#1f1f1f]">Windows</div>
-                <div className="p-3 rounded-xl bg-[#161616] border border-[#1f1f1f]">Mac</div>
-                <div className="p-3 rounded-xl bg-[#161616] border border-[#1f1f1f]">Android</div>
+                <div className={`p-3 rounded-xl border ${deviceType === 'windows' ? 'bg-[#1f1f2f] border-accent-blue text-accent-blue' : 'bg-[#161616] border-[#1f1f1f]'}`}>Windows</div>
+                <div className={`p-3 rounded-xl border ${deviceType === 'mac' ? 'bg-[#1f1f2f] border-accent-blue text-accent-blue' : 'bg-[#161616] border-[#1f1f1f]'}`}>Mac</div>
+                <div className={`p-3 rounded-xl border ${deviceType === 'android' ? 'bg-[#1f1f2f] border-accent-blue text-accent-blue' : 'bg-[#161616] border-[#1f1f1f]'}`}>Android</div>
               </div>
+              {!installed && (
+                <p className="text-xs text-dark-muted mt-3 text-center">
+                  ↑ Install first to unlock AI features
+                </p>
+              )}
             </div>
 
-            <div className="p-6 rounded-3xl bg-[#111] border border-[#1f1f1f] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)]">
+            <div className={`p-6 rounded-3xl bg-[#111] border shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)] ${installed ? 'border-[#1f1f1f]' : 'border-[#1a1a1a] opacity-60'}`}>
               <p className="text-[11px] tracking-[0.25em] text-dark-muted mb-3">STEP 2</p>
               <h3 className="text-2xl font-medium mb-2 text-dark-text">Connect Gmail + Calendar</h3>
-              <p className="text-sm text-dark-muted mb-5">Sign in with Google so focs can generate the brief that matches the screenshots.</p>
+              <p className="text-sm text-dark-muted mb-5">Sync your inbox and calendar so focs can generate smart daily briefs.</p>
               <button
                 onClick={handleGoogleSignIn}
-                disabled={loading}
+                disabled={loading || !installed}
                 className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 px-6 py-3.5 rounded-2xl font-semibold hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 <svg className="w-6 h-6" viewBox="0 0 24 24">
@@ -178,7 +215,14 @@ const Landing = () => {
                 </svg>
                 {loading ? 'Connecting...' : 'Connect with Google'}
               </button>
-              <p className="text-xs text-dark-muted mt-3">If the install banner is blocked, install via your browser menu (“Install app” / “Add to Home Screen”).</p>
+              {!installed && (
+                <p className="text-xs text-orange-400 mt-3 text-center font-medium">
+                  ⚠ Install app first (Step 1)
+                </p>
+              )}
+              {installed && (
+                <p className="text-xs text-dark-muted mt-3">AI will draft email replies for you to review and send.</p>
+              )}
             </div>
           </div>
 
@@ -192,8 +236,10 @@ const Landing = () => {
             </motion.p>
           )}
 
-          <p className="text-sm text-dark-muted mt-6">
-            Install focs first, then connect your accounts. Local processing only; your data stays private.
+          <p className="text-sm text-dark-muted mt-6 text-center">
+            {installed 
+              ? 'App installed ✓ — Now connect your Google account to start.' 
+              : 'Install the app first, then authenticate. Your emails stay private and secure.'}
           </p>
         </motion.div>
       </motion.div>

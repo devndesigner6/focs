@@ -1,4 +1,7 @@
 import { CalendarEvent } from '../types';
+import { requestGoogleAccessToken, GOOGLE_SCOPES } from './googleToken';
+import { db } from '../firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export async function fetchCalendarEvents(userId: string): Promise<CalendarEvent[]> {
   try {
@@ -16,7 +19,7 @@ export async function fetchCalendarEvents(userId: string): Promise<CalendarEvent
     tomorrow.setDate(tomorrow.getDate() + 1);
     
     // Fetch today's calendar events from Google Calendar API
-    const response = await fetch(
+    let response = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
       `timeMin=${today.toISOString()}&` +
       `timeMax=${tomorrow.toISOString()}&` +
@@ -30,7 +33,27 @@ export async function fetchCalendarEvents(userId: string): Promise<CalendarEvent
     );
     
     if (!response.ok) {
-      throw new Error('Failed to fetch calendar events');
+      if (response.status === 401 || response.status === 403) {
+        const freshToken = await requestGoogleAccessToken(GOOGLE_SCOPES);
+        if (freshToken) {
+          try {
+            await setDoc(doc(db, 'users', userId), { accessToken: freshToken, updatedAt: serverTimestamp() }, { merge: true });
+          } catch {}
+          response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+              `timeMin=${today.toISOString()}&` +
+              `timeMax=${tomorrow.toISOString()}&` +
+              `singleEvents=true&` +
+              `orderBy=startTime`,
+            {
+              headers: { Authorization: `Bearer ${freshToken}` },
+            }
+          );
+        }
+      }
+      if (!response.ok) {
+        throw new Error('Failed to fetch calendar events');
+      }
     }
     
     const data = await response.json();

@@ -30,7 +30,7 @@ export interface CalendarEvent {
 
 export interface BriefItem {
   id: string;
-  type: 'email' | 'calendar';
+  type: 'email' | 'calendar' | 'draft' | 'task';
   title: string;
   subtitle: string;
   time?: string;
@@ -40,7 +40,21 @@ export interface BriefItem {
     from?: string;
     location?: string;
     description?: string;
+    emailId?: string;
+    threadId?: string;
   };
+  aiDraft?: EmailDraft;
+  badge?: 'reply' | 'decision' | 'schedule' | 'review' | 'followup';
+}
+
+export interface EmailDraft {
+  id: string;
+  emailId: string;
+  subject: string;
+  recipient: string;
+  draftContent: string;
+  generatedAt: Date;
+  status: 'pending' | 'edited' | 'sent';
 }
 
 export interface DailyBrief {

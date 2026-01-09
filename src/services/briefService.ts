@@ -4,6 +4,7 @@ import { DailyBrief, BriefItem } from '../types';
 import { fetchEmails } from './gmailService';
 import { fetchCalendarEvents } from './calendarService';
 import { generateAISummary } from './aiService';
+import { generateEmailDraft } from './draftService';
 
 export async function fetchDailyBrief(userId: string): Promise<DailyBrief> {
   const today = new Date().toISOString().split('T')[0];
@@ -41,17 +42,22 @@ export async function generateDailyBrief(userId: string): Promise<DailyBrief> {
       fetchCalendarEvents(userId)
     ]);
     
-    // Convert to brief items
-    const emailItems: BriefItem[] = emails.map(email => ({
-      id: `email-${email.id}`,
-      type: 'email',
-      title: email.subject,
-      subtitle: email.snippet,
-      completed: false,
-      priority: email.priority,
-      metadata: {
-        from: email.from
-      }
+    // Convert to brief items with AI drafts for emails
+    const emailItems: BriefItem[] = await Promise.all(emails.map(async (email) => {
+      const draft = email.priority === 'high' ? await generateEmailDraft(email) : undefined;
+      return {
+        id: `email-${email.id}`,
+        type: 'email' as const,
+        title: email.subject,
+        subtitle: email.snippet,
+        completed: false,
+        priority: email.priority,
+        metadata: {
+          from: email.from,
+          emailId: email.id
+        },
+        aiDraft: draft
+      };
     }));
     
     const calendarItems: BriefItem[] = events.map(event => ({
@@ -71,7 +77,33 @@ export async function generateDailyBrief(userId: string): Promise<DailyBrief> {
       }
     }));
     
-    const allItems = [...emailItems, ...calendarItems];
+    // Derive actionable tasks from emails based on simple keyword rules
+    const taskItems: BriefItem[] = emails
+      .map((email) => {
+        const text = `${email.subject} ${email.snippet}`.toLowerCase();
+        let badge: BriefItem['badge'] | undefined;
+        if (/\b(reply|respond|answer)\b/.test(text)) badge = 'reply';
+        else if (/\b(approve|decide|decision)\b/.test(text)) badge = 'decision';
+        else if (/\b(schedule|book|arrange|meet)\b/.test(text)) badge = 'schedule';
+        else if (/\b(review|scan|check)\b/.test(text)) badge = 'review';
+        else if (/\b(follow\s*up|remind)\b/.test(text)) badge = 'followup';
+
+        if (!badge) return null;
+
+        return {
+          id: `task-${email.id}`,
+          type: 'task',
+          title: email.subject,
+          subtitle: email.snippet,
+          completed: false,
+          priority: email.priority,
+          metadata: { from: email.from, emailId: email.id },
+          badge,
+        } as BriefItem;
+      })
+      .filter(Boolean) as BriefItem[];
+
+    const allItems = [...emailItems, ...calendarItems, ...taskItems];
     
     // Generate AI summary
     const summary = await generateAISummary(emails, events);

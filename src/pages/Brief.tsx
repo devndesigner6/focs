@@ -6,7 +6,10 @@ import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { User, DailyBrief, UserSettings } from '../types';
 import { fetchDailyBrief, toggleItemCompletion } from '../services/briefService';
 import Settings from '../components/Settings';
+import DebugOverlay from '../components/DebugOverlay';
+import EmailItemCard from '../components/EmailItemCard';
 import { db, auth, googleProvider } from '../firebase';
+import { requestGoogleAccessToken, GOOGLE_SCOPES } from '../services/googleToken';
 
 interface BriefProps {
   user: User;
@@ -30,6 +33,22 @@ const Brief = ({ user }: BriefProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [connectBusy, setConnectBusy] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAccessToken = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          setAccessToken(userDoc.data().accessToken || null);
+        }
+      } catch (error) {
+        console.error('Error fetching access token:', error);
+      }
+    };
+    fetchAccessToken();
+  }, [user.uid]);
 
   const loadBrief = async () => {
     try {
@@ -54,27 +73,37 @@ const Brief = ({ user }: BriefProps) => {
   };
 
   const handleConnectGoogle = async () => {
+    if (accessToken) return; // Already connected
     try {
       setConnectBusy(true);
-      const result = await signInWithPopup(auth, googleProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken;
-      if (result.user) {
+      setConnectError(null);
+      // Try to get a fresh token via GIS; falls back to Firebase popup if unavailable
+      let newToken: string | null = await requestGoogleAccessToken(GOOGLE_SCOPES);
+      if (!newToken) {
+        const result = await signInWithPopup(auth, googleProvider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        newToken = credential?.accessToken || null;
+      }
+
+      if (newToken) {
         await setDoc(
-          doc(db, 'users', result.user.uid),
+          doc(db, 'users', user.uid),
           {
-            email: result.user.email || '',
-            displayName: result.user.displayName || '',
-            photoURL: result.user.photoURL || '',
-            accessToken: accessToken || null,
+            accessToken: newToken,
             updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
+        setAccessToken(newToken);
+      }
+
+      if (!newToken) {
+        setConnectError('Could not get Google token. Check OAuth client ID and authorized domain.');
       }
       await handleRefresh();
     } catch (e) {
       console.error('Google connect failed', e);
+      setConnectError('Google connect failed. See console for details.');
     } finally {
       setConnectBusy(false);
     }
@@ -153,6 +182,9 @@ const Brief = ({ user }: BriefProps) => {
   }, [brief, userSettings]);
 
   const isEvening = new Date().getHours() >= 17;
+  const emailCount = brief?.items.filter(i => i.type === 'email').length || 0;
+  const calendarCount = brief?.items.filter(i => i.type === 'calendar').length || 0;
+  const taskCount = brief?.items.filter(i => i.type === 'task').length || 0;
 
   if (loading) {
     return (
@@ -166,6 +198,7 @@ const Brief = ({ user }: BriefProps) => {
 
   return (
     <div className="min-h-screen bg-[#0a0b0c] flex items-center justify-center p-4 md:p-10">
+      <DebugOverlay />
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -204,10 +237,10 @@ const Brief = ({ user }: BriefProps) => {
             </button>
             <button
               onClick={handleConnectGoogle}
-              disabled={connectBusy}
+              disabled={connectBusy || !!accessToken}
               className="px-3 py-2 rounded-lg bg-white text-gray-900 text-sm font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
-              {connectBusy ? 'Connecting…' : 'Connect Google'}
+              {connectBusy ? 'Connecting…' : accessToken ? 'Connected' : 'Connect Google'}
             </button>
           </div>
         </div>
@@ -224,39 +257,53 @@ const Brief = ({ user }: BriefProps) => {
                   : brief.summary}
               </p>
             )}
+            <div className="flex items-center gap-3 pt-2">
+              <span className="text-xs px-2.5 py-1.5 rounded-lg bg-[#131417] border border-[#1f2025] text-dark-text">Emails {emailCount}</span>
+              <span className="text-xs px-2.5 py-1.5 rounded-lg bg-[#131417] border border-[#1f2025] text-dark-text">Calendar {calendarCount}</span>
+              <span className="text-xs px-2.5 py-1.5 rounded-lg bg-[#131417] border border-[#1f2025] text-dark-text">Tasks {taskCount}</span>
+            </div>
           </div>
 
           <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
             {brief && brief.items.length > 0 ? (
               <AnimatePresence>
-                {brief.items.map((item, index) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 14 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ delay: index * 0.04 }}
-                    className="group flex items-start gap-4 p-4 rounded-2xl bg-[#0f1112] border border-[#1d1d1d] hover:border-[#2d2d2d] hover:bg-[#121415] transition-all"
-                  >
-                    <button
-                      onClick={() => handleToggleItem(item.id)}
-                      className="mt-1 flex-shrink-0"
-                      aria-label="Toggle completion"
+                {brief.items.map((item, index) => 
+                  item.type === 'email' ? (
+                    <EmailItemCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onToggle={handleToggleItem}
+                      accessToken={accessToken || undefined}
+                    />
+                  ) : (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ delay: index * 0.04 }}
+                      className="group flex items-start gap-4 p-4 rounded-2xl bg-[#0f1112] border border-[#1d1d1d] hover:border-[#2d2d2d] hover:bg-[#121415] transition-all"
                     >
-                      <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                          item.completed
-                            ? 'bg-accent-green/90 border-accent-green'
-                            : 'border-[#3a3a3a] group-hover:border-accent-blue'
-                        }`}
+                      <button
+                        onClick={() => handleToggleItem(item.id)}
+                        className="mt-1 flex-shrink-0"
+                        aria-label="Toggle completion"
                       >
-                        {item.completed && (
-                          <svg className="w-3 h-3 text-black" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.01 7.01a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L8.7 11.586l6.303-6.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </button>
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                            item.completed
+                              ? 'bg-accent-green/90 border-accent-green'
+                              : 'border-[#3a3a3a] group-hover:border-accent-blue'
+                          }`}
+                        >
+                          {item.completed && (
+                            <svg className="w-3 h-3 text-black" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.01 7.01a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L8.7 11.586l6.303-6.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
@@ -276,6 +323,9 @@ const Brief = ({ user }: BriefProps) => {
                           {item.type === 'calendar' && item.time && (
                             <span className="text-xs px-2 py-1 rounded-lg bg-[#1c2531] text-accent-blue">{item.time}</span>
                           )}
+                          {item.type === 'task' && item.badge && (
+                            <span className="text-xs px-2 py-1 rounded-lg bg-[#1c1c1c] border border-[#2a2a2a] text-dark-text capitalize">{item.badge}</span>
+                          )}
                           {!item.completed && item.priority === 'high' && (
                             <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
                           )}
@@ -286,18 +336,20 @@ const Brief = ({ user }: BriefProps) => {
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                  )
+                )}
               </AnimatePresence>
             ) : (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12 text-dark-muted">
                 <p className="text-lg mb-2">Connect Gmail + Calendar</p>
-                <p className="text-sm mb-4">We couldn't load any items. Connect Google to generate your brief.</p>
+                <p className="text-sm mb-1">We couldn't load any items. Connect Google to generate your brief.</p>
+                {connectError && <p className="text-xs text-red-400 mb-3">{connectError}</p>}
                 <button
                   onClick={handleConnectGoogle}
-                  disabled={connectBusy}
+                  disabled={connectBusy || !!accessToken}
                   className="px-4 py-2 rounded-xl bg-white text-gray-900 font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50"
                 >
-                  {connectBusy ? 'Connecting…' : 'Connect Google'}
+                  {connectBusy ? 'Connecting…' : accessToken ? 'Connected' : 'Connect Google'}
                 </button>
               </motion.div>
             )}
