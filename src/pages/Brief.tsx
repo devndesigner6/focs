@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import Settings from '../components/Settings';
 import EmailItemCard from '../components/EmailItemCard';
 import EveningSummary from '../components/EveningSummary';
+import BriefSkeleton from '../components/BriefSkeleton';
+import CalendarEventCard from '../components/CalendarEventCard';
 import DebugOverlay from '../components/DebugOverlay';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -88,13 +90,7 @@ const Brief = ({ user }: BriefProps) => {
   const isMorning = currentHour < 12;
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0b0c]">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-dark-muted">
-          Loading your brief...
-        </motion.div>
-      </div>
-    );
+    return <BriefSkeleton />;
   }
 
   return (
@@ -165,7 +161,7 @@ const Brief = ({ user }: BriefProps) => {
 
                 {/* Items List */}
                 <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
-              {brief && brief.items.length > 0 ? (
+                {brief && brief.items.length > 0 ? (
                 <AnimatePresence>
                   {brief.items.map((item, index) => (
                     item.type === 'email' ? (
@@ -175,6 +171,21 @@ const Brief = ({ user }: BriefProps) => {
                         index={index}
                         onToggle={handleToggleItem}
                         accessToken={accessToken || undefined}
+                      />
+                    ) : item.type === 'calendar' ? (
+                      <CalendarEventCard
+                        key={item.id}
+                        event={{
+                          id: item.id,
+                          summary: item.title,
+                          start: { dateTime: item.metadata?.startTime || new Date().toISOString() },
+                          end: { dateTime: item.metadata?.endTime || new Date().toISOString() },
+                          location: item.metadata?.location,
+                          description: item.subtitle,
+                          hangoutLink: item.metadata?.meetingLink,
+                          colorId: item.metadata?.colorId
+                        }}
+                        index={index}
                       />
                     ) : (
                       <motion.div
@@ -202,11 +213,6 @@ const Brief = ({ user }: BriefProps) => {
                               {item.subtitle && (
                                 <p className="text-xs text-dark-muted mt-1">{item.subtitle}</p>
                               )}
-                              {item.metadata?.location && (
-                                <p className="text-xs text-dark-muted mt-1">
-                                  📍 {item.metadata.location}
-                                </p>
-                              )}
                             </div>
                             
                             {/* Badges */}
@@ -215,11 +221,6 @@ const Brief = ({ user }: BriefProps) => {
                                 <Badge variant="time">
                                   {item.time}
                                 </Badge>
-                              )}
-                              {item.type === 'calendar' && (
-                                <span className="text-xs px-2 py-1 rounded-md bg-blue-500/10 text-blue-400">
-                                  📅
-                                </span>
                               )}
                             </div>
                           </div>

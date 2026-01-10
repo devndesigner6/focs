@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
  */
 export default function DebugOverlay() {
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
-  const [opacity, setOpacity] = useState(0.35);
+  const [opacity] = useState(0.35);
 
   useEffect(() => {
     if (import.meta.env.PROD) return;

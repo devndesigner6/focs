@@ -8,13 +8,11 @@ import { User } from './types';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [forceBrief, setForceBrief] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const force = params.get('forceBrief');
     if (force === '1') {
-      setForceBrief(true);
       setUser({ uid: 'dev', email: 'dev@example.com', displayName: 'Dev Mode' });
       setLoading(false);
       return; // Skip auth listener in dev force mode

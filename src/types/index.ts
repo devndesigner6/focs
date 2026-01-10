@@ -42,6 +42,11 @@ export interface BriefItem {
     description?: string;
     emailId?: string;
     threadId?: string;
+    startTime?: string;
+    endTime?: string;
+    meetingLink?: string;
+    colorId?: string;
+    snippet?: string;
   };
   aiDraft?: EmailDraft;
   badge?: 'reply' | 'decision' | 'schedule' | 'review' | 'followup';
