@@ -42,9 +42,10 @@ export async function generateDailyBrief(userId: string): Promise<DailyBrief> {
       fetchCalendarEvents(userId)
     ]);
     
-    // Convert to brief items with AI drafts for emails
+    // Convert to brief items with AI drafts for ALL emails
     const emailItems: BriefItem[] = await Promise.all(emails.map(async (email) => {
-      const draft = email.priority === 'high' ? await generateEmailDraft(email) : undefined;
+      // Generate AI draft for every email (not just high-priority)
+      const draft = await generateEmailDraft(email);
       return {
         id: `email-${email.id}`,
         type: 'email' as const,
@@ -111,20 +112,36 @@ export async function generateDailyBrief(userId: string): Promise<DailyBrief> {
     const brief: DailyBrief = {
       id: new Date().toISOString().split('T')[0],
       date: new Date(),
-      summary,
+      summary: summary || 'Your daily brief is ready.',
       items: allItems,
       completedCount: 0,
       totalCount: allItems.length,
       generatedAt: new Date()
     };
     
-    // Save to Firestore
+    // Save to Firestore - remove undefined fields
     const briefRef = doc(db, 'users', userId, 'briefs', brief.id);
-    await setDoc(briefRef, {
-      ...brief,
+    const briefData = {
+      id: brief.id,
+      summary: brief.summary,
+      items: brief.items.map(item => ({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        subtitle: item.subtitle || '',
+        completed: item.completed,
+        priority: item.priority || 'medium',
+        time: item.time || null,
+        badge: item.badge || null,
+        metadata: item.metadata || {},
+        aiDraft: item.aiDraft || null
+      })),
+      completedCount: brief.completedCount,
+      totalCount: brief.totalCount,
       date: serverTimestamp(),
       generatedAt: serverTimestamp()
-    });
+    };
+    await setDoc(briefRef, briefData);
     
     return brief;
   } catch (error) {

@@ -1,6 +1,6 @@
 import { EmailItem, CalendarEvent } from '../types';
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyDohffmEbf0Madw_NVHhLoiocNrs2GftTg';
 
 export async function generateAISummary(
   emails: EmailItem[],
@@ -41,7 +41,7 @@ Create a brief, calm summary that:
 Do not use phrases like "Good morning" or greetings. Start directly with the summary.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {

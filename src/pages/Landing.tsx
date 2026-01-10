@@ -86,23 +86,30 @@ const Landing = () => {
     try {
       setLoading(true);
       setError('');
-      // Avoid double prompts: Only sign in if not already signed in
-      if (!auth.currentUser) {
-        const result = await signInWithPopup(auth, googleProvider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const accessToken = credential?.accessToken;
-        if (result.user) {
+      
+      // Step 1: Sign in with Firebase (for user authentication)
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      if (result.user) {
+        // Step 2: Get OAuth access token using Google Identity Services
+        const { requestGoogleAccessToken, GOOGLE_SCOPES } = await import('../services/googleToken');
+        const accessToken = await requestGoogleAccessToken(GOOGLE_SCOPES);
+        
+        if (accessToken) {
+          // Save user data and OAuth access token to Firestore
           await setDoc(
             doc(db, 'users', result.user.uid),
             {
               email: result.user.email || '',
               displayName: result.user.displayName || '',
               photoURL: result.user.photoURL || '',
-              accessToken: accessToken || null,
+              accessToken: accessToken,
               updatedAt: serverTimestamp(),
             },
             { merge: true }
           );
+        } else {
+          throw new Error('Failed to get Gmail/Calendar access token');
         }
       }
     } catch (err: any) {

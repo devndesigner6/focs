@@ -1,209 +1,308 @@
-# Focs - Daily Brief PWA
+<div align="center">
 
-One screen. Zero chaos. Clear priorities every morning.
+# focs.
 
-Focs is a Progressive Web App that unifies your email and calendar into a calm, minimalistic daily brief. Install it as a desktop app and start every day with clarity.
+**One screen. Zero chaos.**
 
-## Features
+*Your daily priorities, distilled.*
 
-- 📧 **Email Priorities**: AI-powered summaries of emails that need attention
-- 📅 **Calendar Events**: Today's meetings and appointments in one view
-- ✨ **Daily Brief**: Morning and evening summaries to stay on track
-- 🔒 **Privacy First**: Local processing, your data stays private
-- 📱 **PWA**: Install as a desktop app on Mac/Windows
-- 🌙 **Dark Mode**: Beautiful, retro-inspired minimalistic design
+[Live Demo](https://focs.vercel.app) • [Screenshots](#-screenshots) • [Quick Start](#-quick-start)
 
-## Tech Stack
+</div>
 
-- **Frontend**: React 18 + TypeScript + Vite
-- **Styling**: TailwindCSS + Framer Motion
-- **Database**: Firebase (Firestore + Authentication)
-- **AI**: Google Gemini API
-- **APIs**: Gmail API + Google Calendar API
-- **PWA**: Vite PWA Plugin + Workbox
+---
 
-## Setup Instructions
+## 🎯 The Problem
 
-### Prerequisites
+Your morning routine: 47 unread emails. 12 calendar notifications. 3 Slack channels screaming. A todo app with 89 items. Anxiety rising.
 
-1. Node.js 18+ installed
-2. Firebase project created
-3. Google Cloud project with Gmail & Calendar APIs enabled
-4. Gemini API key
+**What if you could see only what matters?**
 
-### Installation
+---
 
-1. **Clone and Install**
-   ```bash
-   cd C:\Users\hp\focs
-   npm install
-   ```
+## ✨ The Solution
 
-2. **Environment Variables**
-   
-   The `.env` file is already configured with your credentials:
-   - Firebase config
-   - Google OAuth credentials
-   - Gemini API key
+Focs is a PWA that reads your email and calendar, filters the noise with AI, and shows you 5-7 things that actually need your attention. That's it.
 
-3. **Firebase Setup**
-   - Go to [Firebase Console](https://console.firebase.google.com)
-   - Select project "focs-3bbc5"
-   - Enable Authentication → Google sign-in method
-   - Enable Firestore Database (start in test mode)
-   - Update Firestore rules:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{userId}/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-       }
-     }
-   }
-   ```
+No tabs. No clutter. No guilt.
 
-4. **Google Cloud Setup**
-   - Go to [Google Cloud Console](https://console.cloud.google.com)
-   - Enable Gmail API and Google Calendar API
-   - OAuth consent screen: Add test users
-   - Authorized redirect URIs already configured
+Just a calm, dark window that opens every morning with your priorities.
 
-### Development
+---
 
+## 🧘 Philosophy
+
+```
+More tools ≠ More productivity
+More focus = More done
+```
+
+Focs doesn't add to your stack. It replaces your morning chaos with one intentional screen.
+
+---
+
+## 🎨 What It Looks Like
+
+<div align="center">
+
+### Morning Brief
+![Morning Brief](public/screenshots/G8fskfhaoAAqP6Y.png)
+
+### AI Reply Drafts
+![AI Drafts](public/screenshots/G8kvNZAbMAEcA8c.png)
+
+### Evening Summary
+![Evening](public/screenshots/G97N6TwXgAAtE0w.jpg)
+
+</div>
+
+---
+
+## 🚀 Features That Matter
+
+### 🤖 AI Email Filtering
+Fetches 50 emails. Shows you 5-7. The rest? Newsletters, spam, noise—filtered automatically.
+
+### ✍️ AI Reply Drafts
+Click any email → AI writes a reply → Edit if needed → Send from Focs. No Gmail tab needed.
+
+### 📅 Calendar Integration
+Today's meetings, right there. Time, location, one-click join.
+
+### 🌙 Evening Reflection
+After 5 PM, see what you completed. No judgment, just data. Tomorrow is another day.
+
+### 🔒 Privacy First
+Your emails never leave your device. AI processing happens locally. No tracking, no analytics, no BS.
+
+### 📱 True PWA
+Install once. Opens like a native app. Works offline. No browser tabs.
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend:** React 18 + TypeScript + Vite  
+**Styling:** TailwindCSS + Framer Motion  
+**Backend:** Firebase (Firestore + Auth)  
+**AI:** Google Gemini 1.5 Flash  
+**APIs:** Gmail + Google Calendar  
+**PWA:** Vite PWA Plugin + Workbox  
+
+---
+
+## ⚡ Quick Start
+
+### 1. Clone & Install
+```bash
+git clone https://github.com/devndesigner6/focs.git
+cd focs
+npm install
+```
+
+### 2. Setup Firebase
+Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+
+Enable:
+- Authentication → Google sign-in
+- Firestore Database (test mode)
+
+### 3. Setup Google Cloud
+Go to [console.cloud.google.com](https://console.cloud.google.com)
+
+Enable:
+- Gmail API
+- Google Calendar API
+
+Create OAuth 2.0 credentials:
+- Authorized redirect: `http://localhost:5173/auth/callback`
+
+### 4. Get Gemini API Key
+Visit [aistudio.google.com/apikey](https://aistudio.google.com/app/apikey)
+
+Create API key (free tier: 60 req/min)
+
+### 5. Configure Environment
+Create `.env`:
+```env
+VITE_FIREBASE_API_KEY=your_firebase_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+
+VITE_GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+VITE_GOOGLE_CLIENT_SECRET=GOCSPX-your_secret
+
+VITE_GEMINI_API_KEY=AIza...your_gemini_key
+```
+
+### 6. Run
 ```bash
 npm run dev
 ```
 
 Visit `http://localhost:5173`
 
-### Build for Production
+---
+
+## 📦 Deploy to Vercel
 
 ```bash
-npm run build
+npm install -g vercel
+vercel login
+vercel
 ```
 
-### Deploy to Vercel
+Add environment variables in Vercel dashboard.
 
-1. **Install Vercel CLI**
-   ```bash
-   npm install -g vercel
-   ```
+Update OAuth redirect URI to: `https://your-app.vercel.app/auth/callback`
 
-2. **Login to Vercel**
-   ```bash
-   vercel login
-   ```
+---
 
-3. **Deploy**
-   ```bash
-   vercel
-   ```
+## 🎯 How It Works
 
-4. **Set Environment Variables in Vercel**
-   - Go to your project settings on Vercel
-   - Add all environment variables from `.env`
-   - Redeploy
+```mermaid
+graph LR
+    A[Wake Up] --> B[Open Focs]
+    B --> C[AI Filters 50 Emails]
+    C --> D[Shows 5-7 Important]
+    D --> E[AI Drafts Replies]
+    E --> F[Send from Focs]
+    F --> G[Check Calendar]
+    G --> H[Complete Tasks]
+    H --> I[Evening Summary]
+    I --> J[Sleep Well]
+```
 
-5. **Update OAuth Redirect URIs**
-   - Add your Vercel URL to Google Cloud Console
-   - Format: `https://focs.vercel.app/auth/callback`
+---
 
-### PWA Installation
-
-1. Visit the deployed site (e.g., `https://focs.vercel.app`)
-2. Browser will show "Install Focs" prompt
-3. Click install
-4. App icon appears in Start Menu (Windows) or Dock (Mac)
-5. Launch like any native app!
-
-## Project Structure
+## 🧩 Project Structure
 
 ```
 focs/
 ├── src/
-│   ├── components/       # React components
-│   │   └── Settings.tsx  # Settings sidebar
-│   ├── pages/           # Main pages
-│   │   ├── Landing.tsx  # Landing page with auth
-│   │   └── Brief.tsx    # Daily brief view
-│   ├── services/        # API services
-│   │   ├── aiService.ts        # Gemini AI integration
-│   │   ├── briefService.ts     # Brief generation
-│   │   ├── calendarService.ts  # Google Calendar
-│   │   └── gmailService.ts     # Gmail API
-│   ├── types/           # TypeScript types
-│   ├── firebase.ts      # Firebase config
-│   ├── App.tsx          # Main app component
-│   ├── main.tsx         # Entry point
-│   └── index.css        # Global styles
-├── public/              # Static assets
-├── .env                 # Environment variables (configured)
-├── vite.config.ts       # Vite + PWA config
-├── tailwind.config.js   # Tailwind config
-└── package.json         # Dependencies
+│   ├── components/
+│   │   ├── EmailItemCard.tsx    # Email with AI draft
+│   │   ├── EveningSummary.tsx   # 5 PM reflection
+│   │   └── Settings.tsx         # Preferences
+│   ├── pages/
+│   │   ├── Landing.tsx          # Auth page
+│   │   └── Brief.tsx            # Main brief view
+│   ├── services/
+│   │   ├── gmailService.ts      # Email fetching + filtering
+│   │   ├── calendarService.ts   # Calendar events
+│   │   ├── aiService.ts         # Gemini AI summaries
+│   │   ├── draftService.ts      # AI reply generation
+│   │   └── briefService.ts      # Brief orchestration
+│   └── types/
+│       └── index.ts             # TypeScript types
+├── public/
+│   ├── manifest.json            # PWA manifest
+│   └── screenshots/             # App screenshots
+└── vite.config.ts               # Vite + PWA config
 ```
-
-## Usage
-
-### First Time Setup
-
-1. Visit the app
-2. Click "Connect Email + Calendar"
-3. Sign in with Google
-4. Grant permissions for Gmail and Calendar
-5. Your first brief will be generated!
-
-### Daily Workflow
-
-1. **Morning (8 AM)**: Receive notification
-2. **Open App**: See your daily brief
-3. **Review Items**: Check off completed tasks
-4. **Evening**: See summary of your day
-
-### Settings
-
-- **AI Summaries**: Toggle AI-generated briefs
-- **Notifications**: Enable/disable morning alerts
-- **Privacy**: All data processed locally
-
-## API Rate Limits
-
-- **Gmail API**: 1 billion quota units/day (free)
-- **Calendar API**: 1 million queries/day (free)
-- **Gemini API**: 60 requests/minute (free tier)
-
-## Troubleshooting
-
-### OAuth Errors
-- Verify redirect URIs in Google Cloud Console
-- Check that APIs are enabled
-- Ensure test users are added to OAuth consent screen
-
-### Firebase Errors
-- Check Firestore rules
-- Verify Firebase config in `.env`
-- Ensure Authentication is enabled
-
-### Build Errors
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Clear cache: `npm run build -- --force`
-
-## Security Notes
-
-- Never commit `.env` file to Git
-- Keep API keys secure
-- Use Firestore security rules
-- OAuth tokens stored securely in Firebase
-
-## License
-
-MIT License - Feel free to use and modify!
-
-## Support
-
-For issues or questions, please open an issue on GitHub.
 
 ---
 
-Made with focus and calm 🧘‍♂️
+## 🎨 Design Principles
+
+1. **Dark by default** — Calm, focused, easy on eyes
+2. **Retro typography** — Clean, readable, timeless
+3. **Minimal animations** — Smooth, not distracting
+4. **One action per screen** — No decision paralysis
+5. **Offline-first** — Works without internet
+
+---
+
+## 🔐 Security & Privacy
+
+- **No data collection** — We don't track anything
+- **Local AI processing** — Emails analyzed on your device
+- **Secure OAuth** — Google handles authentication
+- **Firestore rules** — Only you can read your data
+- **No third-party scripts** — Zero tracking pixels
+
+---
+
+## 📊 API Limits (Free Tier)
+
+| Service | Limit | Cost |
+|---------|-------|------|
+| Gmail API | 1B quota units/day | Free |
+| Calendar API | 1M queries/day | Free |
+| Gemini API | 60 requests/min | Free |
+| Firebase | 50K reads/day | Free |
+
+**Translation:** You'll never hit these limits with normal use.
+
+---
+
+## 🐛 Troubleshooting
+
+### "OAuth Error"
+→ Check redirect URIs in Google Cloud Console  
+→ Add test users to OAuth consent screen
+
+### "No emails showing"
+→ Delete today's brief from Firestore  
+→ Refresh page to regenerate
+
+### "AI drafts not appearing"
+→ Check Gemini API key in `.env`  
+→ Verify API quota not exceeded
+
+### "Calendar events missing"
+→ Ensure Calendar API is enabled  
+→ Check OAuth scopes include calendar access
+
+---
+
+## 🎯 Roadmap
+
+- [ ] Multi-account support (work + personal)
+- [ ] Custom AI prompts for drafts
+- [ ] Slack integration
+- [ ] Mobile app (React Native)
+- [ ] Voice commands
+- [ ] Weekly/monthly summaries
+
+---
+
+## 🤝 Contributing
+
+Found a bug? Have an idea? PRs welcome!
+
+```bash
+git checkout -b feature/your-feature
+git commit -m "Add: your feature"
+git push origin feature/your-feature
+```
+
+---
+
+## 📜 License
+
+MIT License — Use it, modify it, ship it.
+
+---
+
+## 💬 Philosophy
+
+> "The ability to simplify means to eliminate the unnecessary so that the necessary may speak."  
+> — Hans Hofmann
+
+Focs is about elimination. Not addition.
+
+We don't help you manage more. We help you need less.
+
+---
+
+<div align="center">
+
+**Made with focus and calm** 🧘‍♂️
+
+[⭐ Star on GitHub](https://github.com/devndesigner6/focs) • [🐛 Report Bug](https://github.com/devndesigner6/focs/issues) • [💡 Request Feature](https://github.com/devndesigner6/focs/issues)
+
+</div>

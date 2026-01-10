@@ -2,11 +2,7 @@ import { EmailItem, EmailDraft } from '../types';
 
 export async function generateEmailDraft(email: EmailItem): Promise<EmailDraft> {
   try {
-    const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    
-    if (!geminiApiKey) {
-      throw new Error('Gemini API key not configured');
-    }
+    const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyDohffmEbf0Madw_NVHhLoiocNrs2GftTg';
 
     const prompt = `You are a professional email assistant. Generate a concise, polite reply to this email.
 
@@ -17,7 +13,7 @@ Body snippet: ${email.snippet}
 Generate a brief, professional reply (2-3 sentences max). Be helpful and courteous. Only provide the email body text, no subject line or signatures.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

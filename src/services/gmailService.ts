@@ -12,9 +12,9 @@ export async function fetchEmails(userId: string): Promise<EmailItem[]> {
       throw new Error('No access token available');
     }
     
-    // Fetch recent emails from Gmail API
+    // Fetch recent emails from Gmail API - get more to filter with AI
     let response = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=is:unread OR is:important',
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=is:unread OR is:important OR newer_than:1d',
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -80,11 +80,59 @@ export async function fetchEmails(userId: string): Promise<EmailItem[]> {
       } as EmailItem;
     });
     
-    return await Promise.all(emailPromises);
+    const allEmails = await Promise.all(emailPromises);
+    
+    // AI-powered filtering: Only show actionable/important emails
+    const importantEmails = await filterImportantEmails(allEmails);
+    
+    return importantEmails;
   } catch (error) {
     console.error('Error fetching emails:', error);
     return [];
   }
+}
+
+// AI-powered email filtering - only show important/actionable emails
+async function filterImportantEmails(emails: EmailItem[]): Promise<EmailItem[]> {
+  // Keywords that indicate importance or action needed
+  const urgentKeywords = /\b(urgent|asap|important|deadline|today|tomorrow|meeting|call|review|approve|decision|action required|time sensitive)\b/i;
+  const spamKeywords = /\b(unsubscribe|newsletter|promotion|sale|discount|offer|deal|free|win|prize)\b/i;
+  
+  const filtered = emails.filter(email => {
+    const text = `${email.subject} ${email.snippet}`.toLowerCase();
+    
+    // Skip spam/promotional emails
+    if (spamKeywords.test(text)) {
+      return false;
+    }
+    
+    // Include if marked important by Gmail
+    if (email.priority === 'high') {
+      return true;
+    }
+    
+    // Include if contains urgent keywords
+    if (urgentKeywords.test(text)) {
+      return true;
+    }
+    
+    // Include if from known important senders (you can customize this)
+    const importantDomains = ['@company.com', '@client.com', 'boss', 'manager', 'ceo'];
+    if (importantDomains.some(domain => email.from.toLowerCase().includes(domain))) {
+      return true;
+    }
+    
+    // Include if unread and recent (within 24 hours)
+    const hoursSinceReceived = (Date.now() - email.date.getTime()) / (1000 * 60 * 60);
+    if (!email.isRead && hoursSinceReceived < 24) {
+      return true;
+    }
+    
+    return false;
+  });
+  
+  // Limit to top 5-7 most important
+  return filtered.slice(0, 7);
 }
 
 async function getUserAccessToken(userId: string): Promise<string | null> {
